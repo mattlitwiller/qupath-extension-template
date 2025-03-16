@@ -14,7 +14,11 @@ out/
 # Gradle
 # Use local properties (e.g. to set a specific JDK)
 gradle.properties
-build/
+# build/
+build/classes/
+build/reports
+build/resources
+build/tmp
 .gradle/
 gradle.properties
 
