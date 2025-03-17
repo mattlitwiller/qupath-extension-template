@@ -158,7 +158,7 @@ class DemoGroovyExtension implements QuPathExtension {
 						throw new Exception("No model directory set for yolo predictions")
 					}else{
 						def args = call[1].split(";")
-						command = "python " + python_dir.toString() + "/env_setup.py " + args[0] + " " + project_dir.toString() + " " + python_dir.toString() + " " + args[1].toDouble()
+						command = "python " + python_dir.toString() + "/env_setup.py " + args[0] + " " + project_dir.toString() + " " + python_dir.toString() + " " + args[1].toDouble() + " " + args[2]
 						println command
 						def process = command.execute()
 
@@ -273,30 +273,26 @@ class DemoGroovyExtension implements QuPathExtension {
 
 				Label modelDirLabel = new Label("Model Directory:")
 				TextField modelDirField = new TextField()
-				modelDirField.setPromptText("Select a directory containing models")
-				modelDirField.setEditable(false) // User cannot type directly
-				Button chooseDirButton = new Button("Choose Directory")
-				chooseDirButton.setOnAction(ev -> {
-					DirectoryChooser directoryChooser = new DirectoryChooser()
-					directoryChooser.setTitle("Select Model Directory")
-					
-					// Set an initial directory (optional)
-					File initialDir = new File(System.getProperty("user.home"))
-					if (initialDir.exists()) {
-						directoryChooser.setInitialDirectory(initialDir)
-					}
-					
-					// Show the directory chooser and get the selected directory
-					File selectedDir = directoryChooser.showDialog(dialog)
-					if (selectedDir != null) {
-						modelDirField.setText(selectedDir.getAbsolutePath())
-					}
+				
+				String model_dir = ""
+				HBox model_hbox = PathChooserHelper.createDirectoryChooserBox("YOLO Model location", "","", spacing, dialog)
+				model_hbox.getChildren().get(0).textProperty().addListener((observable, oldValue, newValue) -> {
+					System.out.println("Model directory changed from " + oldValue + " to " + newValue);
+					model_dir = newValue
+				})
+
+				Label requirementsLabel = new Label("Import Python environment requirements file:")
+				String requirements_path = ""
+				HBox requirements_hbox = PathChooserHelper.createFileChooserBox("Anaconda dependency file location", "requirements.txt file","", spacing, dialog, new FileChooser.ExtensionFilter("Text Files", "*.txt"), false)
+				requirements_hbox.getChildren().get(0).textProperty().addListener((observable, oldValue, newValue) -> {
+					System.out.println("requirements.txt value changed from " + oldValue + " to " + newValue);
+					requirements_path = newValue
 				})
 
 				CheckBox importPredictions = new CheckBox("Import YOLO Predictions")
 				importPredictions.setSelected(false)	
 
-				yoloPredictionSection.getChildren().addAll(downsampleLabel, downsampleHbox, convertToJpg, yoloPredictions, modelDirLabel, modelDirField, chooseDirButton, importPredictions)
+				yoloPredictionSection.getChildren().addAll(downsampleLabel, downsampleHbox, convertToJpg, yoloPredictions, modelDirLabel, model_hbox, requirementsLabel, requirements_hbox, importPredictions)
 				TitledPane yoloPredictionPane = new TitledPane("Produding YOLO Predictions", yoloPredictionSection)
 				yoloPredictionPane.setExpanded(false)
 
@@ -467,7 +463,6 @@ class DemoGroovyExtension implements QuPathExtension {
 					}
 						
 					String downsample = downsampleField.getText()
-					String model_dir = modelDirField.getText()
 					String hematoxylinVector = hematoxylinVectorField.getText()
 					String dabVector = dabVectorField.getText()
 					String backgroundVector = backgroundVectorField.getText()
@@ -530,8 +525,13 @@ class DemoGroovyExtension implements QuPathExtension {
 					// prediction_dir = qupath_dir + "/" + project + "/output"
 
 					if(boolYoloPredictions && model_dir.equals("")){
-						Dialogs.showMessageDialog("Error", "No model directory selected for YOLO predictions. Set model directory or uncheck YOLO predictions step.");
-						return;
+						Dialogs.showMessageDialog("Error", "No model directory selected for YOLO predictions. Set model directory or uncheck YOLO predictions step.")
+						return
+					}
+
+					if(boolYoloPredictions && requirements_path.equals("")){
+						Dialogs.showMessageDialog("Error", "No requirements file selected for conda environment. Set requirements file or uncheck YOLO predictions step.")
+						return
 					}
 
 					// Log other inputs
@@ -551,7 +551,7 @@ class DemoGroovyExtension implements QuPathExtension {
 								println "setting up pipeline"
 								def pipeline_calls = [
 									["WSItoJpg", downsample, boolConvertToJpg.toString()],
-									["env_setup", model_dir + ";" + downsample, boolYoloPredictions.toString()], //for only this script (since it's python and not groovy), set the parameters differently
+									["env_setup", model_dir + ";" + downsample + ";" + requirements_path, boolYoloPredictions.toString()], //for only this script (since it's python and not groovy), set the parameters differently
 									["import_geojson_annotations", prediction_dir, boolImportGeojson.toString()], 
 									["set_manual_stain_vectors", hematoxylinVector + ";" + dabVector + ";" + backgroundVector, boolSetVectors.toString()], 
 									["create_roi_from_yolo", null, boolCleanDetections.toString()], 
