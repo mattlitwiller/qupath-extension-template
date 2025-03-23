@@ -158,7 +158,7 @@ class DemoGroovyExtension implements QuPathExtension {
 						throw new Exception("No model directory set for yolo predictions")
 					}else{
 						def args = call[1].split(";")
-						command = "python " + python_dir.toString() + "/env_setup.py " + args[0] + " " + project_dir.toString() + " " + python_dir.toString() + " " + args[1].toDouble() + " " + args[2]
+						command = "python -u " + python_dir.toString() + "/env_setup.py " + args[0] + " " + project_dir.toString() + " " + python_dir.toString() + " " + args[1].toDouble() + " " + args[2]
 						println command
 						def process = command.execute()
 
@@ -255,8 +255,10 @@ class DemoGroovyExtension implements QuPathExtension {
 
 				// Yolo prediction
 				VBox yoloPredictionSection = new VBox(spacing)
-
 				Label downsampleLabel = new Label("Image Downsample Value:")
+				InfoIcon downsampleInfo = new InfoIcon("Downsample of 1 maintains image quality but will be computationally intensive or infeasible")
+				HBox downsampleLabelHbox = new HBox(spacing)
+				downsampleLabelHbox.getChildren().addAll(downsampleLabel, downsampleInfo)
 				TextField downsampleField = new TextField(defaultDownsample)
 				HBox downsampleHbox = new HBox(spacing)
 				boolean validFieldDownsample = true
@@ -282,6 +284,9 @@ class DemoGroovyExtension implements QuPathExtension {
 				})
 
 				Label requirementsLabel = new Label("Import Python environment requirements file:")
+				InfoIcon requirementsInfo = new InfoIcon("Requires conda installation to setup python environment for YOLO predictions")
+				HBox requirementsLabelHbox = new HBox(spacing)
+				requirementsLabelHbox.getChildren().addAll(requirementsLabel, requirementsInfo)
 				String requirements_path = ""
 				HBox requirements_hbox = PathChooserHelper.createFileChooserBox("Anaconda dependency file location", "requirements.txt file","", spacing, dialog, new FileChooser.ExtensionFilter("Text Files", "*.txt"), false)
 				requirements_hbox.getChildren().get(0).textProperty().addListener((observable, oldValue, newValue) -> {
@@ -292,7 +297,7 @@ class DemoGroovyExtension implements QuPathExtension {
 				CheckBox importPredictions = new CheckBox("Import YOLO Predictions")
 				importPredictions.setSelected(false)	
 
-				yoloPredictionSection.getChildren().addAll(downsampleLabel, downsampleHbox, convertToJpg, yoloPredictions, modelDirLabel, model_hbox, requirementsLabel, requirements_hbox, importPredictions)
+				yoloPredictionSection.getChildren().addAll(downsampleLabelHbox, downsampleHbox, convertToJpg, yoloPredictions, modelDirLabel, model_hbox, requirementsLabelHbox, requirements_hbox, importPredictions)
 				TitledPane yoloPredictionPane = new TitledPane("Produding YOLO Predictions", yoloPredictionSection)
 				yoloPredictionPane.setExpanded(false)
 
@@ -334,11 +339,20 @@ class DemoGroovyExtension implements QuPathExtension {
 
 
 				// Clean annotations 
-				VBox cleanAnnotationSection = new VBox(spacing)
-				CheckBox cleanDetections = new CheckBox("Clean Detections")
-				cleanDetections.setSelected(false)		
-				cleanAnnotationSection.getChildren().add(cleanDetections)
-				TitledPane cleanAnnotationPane = new TitledPane("Post-Processing", cleanAnnotationSection)
+				CheckBox cleanAnnotations = new CheckBox("Clean YOLO predictions")
+				cleanAnnotations.setSelected(false)		
+				InfoIcon cleanAnnotationsInfo = new InfoIcon(
+"""Cleans YOLO predictions (annotations) by:
+- Filtering predictions to keep only predictions within tonsil and appendix regions
+- Combining predictions
+- Filling holes in predictions
+- Ensuring dark and light zones do not overlap
+- Removing small predictions
+- Ensuring LZ/DZ exist only within GC
+- Ensuring no mantle region overlaps with a GC""")
+				HBox cleanAnnotationsHbox = new HBox(spacing)
+				cleanAnnotationsHbox.getChildren().addAll(cleanAnnotations, cleanAnnotationsInfo)
+				TitledPane cleanAnnotationPane = new TitledPane("Post-Processing", cleanAnnotationsHbox)
 				cleanAnnotationPane.setExpanded(false)
 				
 
@@ -348,6 +362,9 @@ class DemoGroovyExtension implements QuPathExtension {
 				HBox instansegRow2 = new HBox(spacing)
 				CheckBox runInstanseg = new CheckBox("Run InstanSeg")
 				runInstanseg.setSelected(false)	
+				InfoIcon instansegInfo = new InfoIcon("Requires Instanseg extension to be configured. Will run on GPU if enabled, otherwise CPU")
+				HBox instansegHbox = new HBox(spacing)
+				instansegHbox.getChildren().addAll(runInstanseg, instansegInfo)
 				Label instansegRegionsLabel = new Label("InstanSeg segmentation in the following regions:")
 				CheckBox lzCheckbox = new CheckBox("Light Zones")
 				lzCheckbox.setSelected(defaultLzCheckbox)
@@ -359,7 +376,7 @@ class DemoGroovyExtension implements QuPathExtension {
 				mCheckbox.setSelected(defaultMCheckbox)
 				instansegRow1.getChildren().addAll(lzCheckbox, dzCheckbox)
 				instansegRow2.getChildren().addAll(gcCheckbox, mCheckbox)
-				instansegSection.getChildren().addAll(runInstanseg, instansegRegionsLabel, instansegRow1, instansegRow2)
+				instansegSection.getChildren().addAll(instansegHbox, instansegRegionsLabel, instansegRow1, instansegRow2)
 				TitledPane instansegPane = new TitledPane("InstanSeg", instansegSection)
 				instansegPane.setExpanded(false)
 
@@ -406,26 +423,30 @@ class DemoGroovyExtension implements QuPathExtension {
 				dzField.textProperty().addListener { _, oldVal, newVal -> validFieldBackground = ValidateInputs.validateNumber(newVal, dzLabel)}
 				dzMinHbox.getChildren().addAll(dzField, dzLabel)
 				
+				HBox blurrinessLabelHbox = new HBox(spacing)
 				HBox blurrinessHbox = new HBox(spacing)
 				Label blurrinessLabel = new Label("Blurriness Threshold:")
 				Label blurrinessMessage = new Label("")
 				TextField blurrinessField = new TextField(defaultBlurrinessThreshold)
+				InfoIcon blurrinessInfo = new InfoIcon("Low blurriness indicates low detection density and likely presence of blurred image")
 				blurrinessField.setPromptText("Threshold (default: " + defaultBlurrinessThreshold + ")")
 				blurrinessField.textProperty().addListener { _, oldVal, newVal -> validFieldBackground = ValidateInputs.validateNumber(newVal, blurrinessMessage)}
+				blurrinessLabelHbox.getChildren().addAll(blurrinessLabel, blurrinessInfo)
 				blurrinessHbox.getChildren().addAll(blurrinessField, blurrinessMessage)
 
-				outputSection.getChildren().addAll(descriptionOutput, positivityThresholdLabel, lzMinHbox, gcMinHbox, dzMinHbox, blurrinessLabel, blurrinessHbox)
+				outputSection.getChildren().addAll(descriptionOutput, positivityThresholdLabel, lzMinHbox, gcMinHbox, dzMinHbox, blurrinessLabelHbox, blurrinessHbox)
 				TitledPane outputPane = new TitledPane("Results", outputSection)
 				outputPane.setExpanded(false)
 				
 
 				//Pipeline modularity
-				VBox modularitySection = new VBox(spacing)
+				HBox modularitySection = new HBox(spacing)
 				Label pipelineModularityLabel = new Label("Pipeline modularity")
-				Label modularityText = new Label("- The complete pipeline execution order is laid out with default values.\n- Pipeline steps can be toggled for intermediate results.\n- The only step that depends on stain vectors is InstanSeg.");
-				modularityText.setWrapText(true)
-				modularityText.setPrefWidth(-1); // In some cases, this might help to ignore the preferred width.
-				modularitySection.getChildren().addAll(pipelineModularityLabel, modularityText)
+				InfoIcon modularityInfo = new InfoIcon(
+"""- The complete pipeline execution order is laid out with default values
+- Pipeline steps can be toggled for intermediate results
+- The only step that depends on stain vectors is InstanSeg""")
+				modularitySection.getChildren().addAll(pipelineModularityLabel, modularityInfo)
 
 				mainLayout.getChildren().addAll(
 					pathPane,
