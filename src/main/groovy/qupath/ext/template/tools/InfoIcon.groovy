@@ -4,6 +4,7 @@ import javafx.geometry.Bounds
 import javafx.scene.shape.Circle
 import javafx.scene.layout.StackPane
 import javafx.scene.layout.Region
+import javafx.application.Platform
 
 class InfoIcon extends StackPane {
         InfoIcon(String tooltipText) {
@@ -30,7 +31,11 @@ class InfoIcon extends StackPane {
         // Set hover events for the Circle
         circle.setOnMouseEntered {
             Bounds bounds = circle.localToScreen(circle.boundsInLocal)
-            tooltip.show(circle, bounds.getMaxX() + 10, bounds.getMinY())
+            tooltip.show(circle, bounds.getMaxX() + 2, bounds.getMinY())
+
+            Platform.runLater {
+                tooltip.setAnchorY(bounds.getMaxY() - tooltip.getHeight() - 8)
+            }
         }
 
         circle.setOnMouseExited {

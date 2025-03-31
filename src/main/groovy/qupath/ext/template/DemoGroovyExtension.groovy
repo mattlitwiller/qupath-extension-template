@@ -16,6 +16,7 @@ import javafx.geometry.Pos
 import java.io.File
 import javafx.stage.DirectoryChooser
 import javafx.stage.FileChooser;
+import javafx.application.Platform
 
 
 
@@ -69,7 +70,7 @@ class DemoGroovyExtension implements QuPathExtension {
 	def commandMap = [
 		"WSItoJpg": "Yolo Prediction",
 		"env_setup": "Python Environment Setup",
-		"yolo_predictions": "Yolo Prediction",
+		"yolo_predictions": "Yolo Predictions",
 		"import_geojson_annotations" : "Import Predictions",
 		"set_manual_stain_vectors": "Set Stain Vectors",
 		"create_roi_from_yolo": "Clean Detections",
@@ -114,7 +115,7 @@ class DemoGroovyExtension implements QuPathExtension {
 	}
 	
 
-	private void pipeline(pipeline_calls, project_dir, project_path) {
+	private void pipeline(pipeline_calls, project_dir, project_path, ProgressFeedback progressBar) {
 
 		println "before dirs"
 		println project_dir
@@ -150,7 +151,11 @@ class DemoGroovyExtension implements QuPathExtension {
 
 			// Execute the command
 			if(call[2].equals("true")) {
+				
+				Platform.runLater(() -> progressBar.setProgress("Performing step: " + commandMap.get(call[0]) + "..."));
 
+				// progressBar.setProgress("Performing step: " + commandMap.get(call[0]) + "...")
+				
 				def exitCode = 0
 				//the only python script we will need
 				if(call[0].equals("env_setup")){
@@ -362,7 +367,7 @@ class DemoGroovyExtension implements QuPathExtension {
 				HBox instansegRow2 = new HBox(spacing)
 				CheckBox runInstanseg = new CheckBox("Run InstanSeg")
 				runInstanseg.setSelected(false)	
-				InfoIcon instansegInfo = new InfoIcon("Requires Instanseg extension to be configured. Will run on GPU if enabled, otherwise CPU")
+				InfoIcon instansegInfo = new InfoIcon("Requires Instanseg extension to be configured. Will run on GPU if enabled, otherwise CPU.\nOutputting results step assumes InstanSeg was run for GC, LZ & DZ regions.")
 				HBox instansegHbox = new HBox(spacing)
 				instansegHbox.getChildren().addAll(runInstanseg, instansegInfo)
 				Label instansegRegionsLabel = new Label("InstanSeg segmentation in the following regions:")
@@ -428,7 +433,7 @@ class DemoGroovyExtension implements QuPathExtension {
 				Label blurrinessLabel = new Label("Blurriness Threshold:")
 				Label blurrinessMessage = new Label("")
 				TextField blurrinessField = new TextField(defaultBlurrinessThreshold)
-				InfoIcon blurrinessInfo = new InfoIcon("Low blurriness indicates low detection density and likely presence of blurred image")
+				InfoIcon blurrinessInfo = new InfoIcon("Density threshold of cell detections within an annotation group to estimate blurriness.\nHigher thresholds are more sensitive to blurred images.\nTo detect no blurred images, set 0")
 				blurrinessField.setPromptText("Threshold (default: " + defaultBlurrinessThreshold + ")")
 				blurrinessField.textProperty().addListener { _, oldVal, newVal -> validFieldBackground = ValidateInputs.validateNumber(newVal, blurrinessMessage)}
 				blurrinessLabelHbox.getChildren().addAll(blurrinessLabel, blurrinessInfo)
@@ -501,12 +506,12 @@ class DemoGroovyExtension implements QuPathExtension {
 					boolean boolYoloPredictions = yoloPredictions.isSelected()    				
 					boolean boolImportGeojson = importPredictions.isSelected()    				
 					boolean boolSetVectors = setVectors.isSelected()    				
-					boolean boolCleanDetections = cleanDetections.isSelected()    				
+					boolean boolCleanAnnotations = cleanAnnotations.isSelected()    				
 					boolean boolRunInstanseg = runInstanseg.isSelected()    				
 					boolean boolClassifyCells = classifyCells.isSelected()   
 					boolean boolDescriptionOutput = descriptionOutput.isSelected() 	
 
-					List<CheckBox> checkboxes = [convertToJpg, yoloPredictions, importPredictions, setVectors, cleanDetections, runInstanseg, classifyCells, descriptionOutput]
+					List<CheckBox> checkboxes = [convertToJpg, yoloPredictions, importPredictions, setVectors, cleanAnnotations, runInstanseg, classifyCells, descriptionOutput]
 
 					//Form validation stain vector
 					if((boolConvertToJpg || boolYoloPredictions) && !validFieldDownsample) {
@@ -564,25 +569,28 @@ class DemoGroovyExtension implements QuPathExtension {
 
 					String stainVector = "dummy value"
 
+					ProgressFeedback progressBar = new ProgressFeedback()
+					progressBar.startProgress()
+
 					// Define the task for the computation
+					def pipeline_calls = [
+						["WSItoJpg", downsample, boolConvertToJpg.toString()],
+						["env_setup", model_dir + ";" + downsample + ";" + requirements_path, boolYoloPredictions.toString()], //for only this script (since it's python and not groovy), set the parameters differently
+						["import_geojson_annotations", prediction_dir, boolImportGeojson.toString()], 
+						["set_manual_stain_vectors", hematoxylinVector + ";" + dabVector + ";" + backgroundVector, boolSetVectors.toString()], 
+						["create_roi_from_yolo", null, boolCleanAnnotations.toString()], 
+						["filter_annotations_ROI_only", null, boolCleanAnnotations.toString()], 
+						["clean_detections", null, boolCleanAnnotations.toString()], 
+						["instanseg", lzSegmentation.toString() + ";" + dzSegmentation.toString() + ";" + gcSegmentation.toString() + ";" + mSegmentation.toString(), boolRunInstanseg.toString()], 
+						["cell_classification", dabThreshold, boolClassifyCells.toString()],
+						["description_output_single", dzThreshold + ";" + lzThreshold + ";" + gcThreshold + ";" + blurrinessThreshold, boolDescriptionOutput.toString()]
+					]
 					Task computationTask = new Task() {
 						@Override
 						protected Void call() throws Exception {
 							try{
 								println "setting up pipeline"
-								def pipeline_calls = [
-									["WSItoJpg", downsample, boolConvertToJpg.toString()],
-									["env_setup", model_dir + ";" + downsample + ";" + requirements_path, boolYoloPredictions.toString()], //for only this script (since it's python and not groovy), set the parameters differently
-									["import_geojson_annotations", prediction_dir, boolImportGeojson.toString()], 
-									["set_manual_stain_vectors", hematoxylinVector + ";" + dabVector + ";" + backgroundVector, boolSetVectors.toString()], 
-									["create_roi_from_yolo", null, boolCleanDetections.toString()], 
-									["filter_annotations_ROI_only", null, boolCleanDetections.toString()], 
-									["clean_detections", null, boolCleanDetections.toString()], 
-									["instanseg", lzSegmentation.toString() + ";" + dzSegmentation.toString() + ";" + gcSegmentation.toString() + ";" + mSegmentation.toString(), boolRunInstanseg.toString()], 
-									["cell_classification", dabThreshold, boolClassifyCells.toString()],
-									["description_output_single", dzThreshold + ";" + lzThreshold + ";" + gcThreshold, boolDescriptionOutput.toString()]
-								]
-								pipeline(pipeline_calls, proj_dir, proj_path)
+								pipeline(pipeline_calls, proj_dir, proj_path, progressBar)
 								updateMessage("Progress: Completed!")
 							} catch (Exception ex) {
 								ex.printStackTrace(); // Print the error to debug
@@ -592,13 +600,14 @@ class DemoGroovyExtension implements QuPathExtension {
 							return null
 						}
 					}
-										
 					// Handle task completion
 					computationTask.setOnSucceeded(taskEv -> {
+						progressBar.endProgress()
 						Dialogs.showMessageDialog("Computation Complete", "All steps completed successfully!")
 					})
 					
 					computationTask.setOnFailed(taskEv -> {
+						progressBar.endProgress()
 						println "=====ComputationTask encountered an error that was caught!====="
 						Throwable error = computationTask.getException(); // Get the exception
 						String errorMessage = (error != null) ? error.getMessage() : "Unknown error";
