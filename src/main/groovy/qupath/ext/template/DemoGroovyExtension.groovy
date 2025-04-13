@@ -61,9 +61,9 @@ class DemoGroovyExtension implements QuPathExtension {
 	boolean defaultGcCheckbox = true
 	boolean defaultMCheckbox = false
 	String defaultDabThreshold = "0.15"
-	String defaultLzThreshold = "55" 
-	String defaultDzThreshold = "85"
-	String defaultGcThreshold = "70"
+	String defaultLzThreshold = "64" 
+	String defaultDzThreshold = "87"
+	String defaultGcThreshold = "71"
 	String defaultBlurrinessThreshold = "5"
 
 	//key value pair of step string value and groovy script name
@@ -404,6 +404,9 @@ class DemoGroovyExtension implements QuPathExtension {
 				// Slide Flagging section
 				VBox outputSection = new VBox(spacing)
 				CheckBox descriptionOutput = new CheckBox("Output Results")
+				InfoIcon resultsInfo = new InfoIcon("Using a sample of 90 slides, minimum threshold default was defined as 2SD below mean for each region.")
+				HBox outputResultsCheckbox = new HBox(spacing)
+				outputResultsCheckbox.getChildren().addAll(descriptionOutput, resultsInfo)
 				descriptionOutput.setSelected(false)
 				Label positivityThresholdLabel = new Label("Set Minimum Positivity of Regions (LZ, GC, DZ):")
 							
@@ -439,7 +442,7 @@ class DemoGroovyExtension implements QuPathExtension {
 				blurrinessLabelHbox.getChildren().addAll(blurrinessLabel, blurrinessInfo)
 				blurrinessHbox.getChildren().addAll(blurrinessField, blurrinessMessage)
 
-				outputSection.getChildren().addAll(descriptionOutput, positivityThresholdLabel, lzMinHbox, gcMinHbox, dzMinHbox, blurrinessLabelHbox, blurrinessHbox)
+				outputSection.getChildren().addAll(outputResultsCheckbox, positivityThresholdLabel, lzMinHbox, gcMinHbox, dzMinHbox, blurrinessLabelHbox, blurrinessHbox)
 				TitledPane outputPane = new TitledPane("Results", outputSection)
 				outputPane.setExpanded(false)
 				
@@ -583,7 +586,7 @@ class DemoGroovyExtension implements QuPathExtension {
 						["clean_detections", null, boolCleanAnnotations.toString()], 
 						["instanseg", lzSegmentation.toString() + ";" + dzSegmentation.toString() + ";" + gcSegmentation.toString() + ";" + mSegmentation.toString(), boolRunInstanseg.toString()], 
 						["cell_classification", dabThreshold, boolClassifyCells.toString()],
-						["description_output_single", dzThreshold + ";" + lzThreshold + ";" + gcThreshold + ";" + blurrinessThreshold, boolDescriptionOutput.toString()]
+						["description_output_single", lzThreshold + ";" + gcThreshold + ";" + dzThreshold + ";" + blurrinessThreshold, boolDescriptionOutput.toString()]
 					]
 					Task computationTask = new Task() {
 						@Override
