@@ -78,7 +78,8 @@ class DemoGroovyExtension implements QuPathExtension {
 		"clean_detections": "Clean Detections",
 		"instanseg": "Nuclei Segmentation",
 		"cell_classification": "Cell Classification",
-		"description_output_single": "Analysis Output"
+		"description_output_single": "Analysis Output",
+		"export_powerbi": "Write data to csv"
 	]
 
 	@Override
@@ -445,8 +446,22 @@ class DemoGroovyExtension implements QuPathExtension {
 				outputSection.getChildren().addAll(outputResultsCheckbox, positivityThresholdLabel, lzMinHbox, gcMinHbox, dzMinHbox, blurrinessLabelHbox, blurrinessHbox)
 				TitledPane outputPane = new TitledPane("Results", outputSection)
 				outputPane.setExpanded(false)
-				
 
+
+				// Export data for power BI
+				CheckBox exportCheckbox = new CheckBox("Export csv file")
+				exportCheckbox.setSelected(false)
+				HBox output_hbox = PathChooserHelper.createDirectoryChooserBox("Data csv save destination", "csv file directory" ,"", spacing, dialog)
+				String output_dir = ""
+				output_hbox.getChildren().get(0).textProperty().addListener((observable, oldValue, newValue) -> {
+					output_dir = newValue
+					println "output dir changed to " + output_dir
+				})
+				VBox exportSection = new VBox(spacing)
+				exportSection.getChildren().addAll(exportCheckbox, output_hbox)
+				TitledPane exportPane = new TitledPane("Export for Power BI", exportSection)
+				exportPane.setExpanded(false)
+				
 				//Pipeline modularity
 				HBox modularitySection = new HBox(spacing)
 				Label pipelineModularityLabel = new Label("Pipeline modularity")
@@ -465,7 +480,9 @@ class DemoGroovyExtension implements QuPathExtension {
 					stainPane, 
 					instansegPane,
 					classificationPane,
-					outputPane
+					outputPane,
+					new Separator(),
+					exportPane
 				)
 
 				mainLayout.setPrefSize(Region.USE_COMPUTED_SIZE, Region.USE_COMPUTED_SIZE) // Auto-size
@@ -513,8 +530,9 @@ class DemoGroovyExtension implements QuPathExtension {
 					boolean boolRunInstanseg = runInstanseg.isSelected()    				
 					boolean boolClassifyCells = classifyCells.isSelected()   
 					boolean boolDescriptionOutput = descriptionOutput.isSelected() 	
+					boolean boolExportData = exportCheckbox.isSelected()
 
-					List<CheckBox> checkboxes = [convertToJpg, yoloPredictions, importPredictions, setVectors, cleanAnnotations, runInstanseg, classifyCells, descriptionOutput]
+					List<CheckBox> checkboxes = [convertToJpg, yoloPredictions, importPredictions, setVectors, cleanAnnotations, runInstanseg, classifyCells, descriptionOutput, exportCheckbox]
 
 					//Form validation stain vector
 					if((boolConvertToJpg || boolYoloPredictions) && !validFieldDownsample) {
@@ -526,8 +544,6 @@ class DemoGroovyExtension implements QuPathExtension {
 						Dialogs.showErrorMessage("Error", "Form validation failed for stain vectors");
 						return
 					}
-
-
 
 					// Project Information
 					def proj = qupath.getProject()
@@ -542,6 +558,8 @@ class DemoGroovyExtension implements QuPathExtension {
 						return;
 					}
 
+
+
 					def proj_path = proj.getPath()
 					println proj_path
 
@@ -553,11 +571,15 @@ class DemoGroovyExtension implements QuPathExtension {
 					prediction_dir = proj_dir + "/output"	
 					// prediction_dir = qupath_dir + "/" + project + "/output"
 
+					// check inputs for various scripts
+					if(exportCheckbox.selected && output_dir.equals("")) {
+						Dialogs.showMessageDialog("Error", "No directory set for exporting data. Set save destination for outputted csv file or uncheck export step.");
+						return;
+					}
 					if(boolYoloPredictions && model_dir.equals("")){
 						Dialogs.showMessageDialog("Error", "No model directory selected for YOLO predictions. Set model directory or uncheck YOLO predictions step.")
 						return
 					}
-
 					if(boolYoloPredictions && requirements_path.equals("")){
 						Dialogs.showMessageDialog("Error", "No requirements file selected for conda environment. Set requirements file or uncheck YOLO predictions step.")
 						return
@@ -569,8 +591,6 @@ class DemoGroovyExtension implements QuPathExtension {
 					println "DAB Positivity Threshold: $dabThreshold"
 					println "Positivity Thresholds - DZ: $dzThreshold, LZ: $lzThreshold, GC: $gcThreshold"
 					println "Blurriness Threshold: $blurrinessThreshold"
-
-					String stainVector = "dummy value"
 
 					ProgressFeedback progressBar = new ProgressFeedback()
 					progressBar.startProgress()
@@ -586,7 +606,8 @@ class DemoGroovyExtension implements QuPathExtension {
 						["clean_detections", null, boolCleanAnnotations.toString()], 
 						["instanseg", lzSegmentation.toString() + ";" + dzSegmentation.toString() + ";" + gcSegmentation.toString() + ";" + mSegmentation.toString(), boolRunInstanseg.toString()], 
 						["cell_classification", dabThreshold, boolClassifyCells.toString()],
-						["description_output_single", lzThreshold + ";" + gcThreshold + ";" + dzThreshold + ";" + blurrinessThreshold, boolDescriptionOutput.toString()]
+						["description_output_single", lzThreshold + ";" + gcThreshold + ";" + dzThreshold + ";" + blurrinessThreshold, boolDescriptionOutput.toString()],
+						["export_powerbi", output_dir, boolExportData.toString()]
 					]
 					Task computationTask = new Task() {
 						@Override
