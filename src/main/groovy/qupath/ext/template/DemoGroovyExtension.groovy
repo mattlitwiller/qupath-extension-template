@@ -405,7 +405,7 @@ class DemoGroovyExtension implements QuPathExtension {
 				// Slide Flagging section
 				VBox outputSection = new VBox(spacing)
 				CheckBox descriptionOutput = new CheckBox("Output Results")
-				InfoIcon resultsInfo = new InfoIcon("Using a sample of 90 slides, minimum threshold default was defined as 2SD below mean for each region.")
+				InfoIcon resultsInfo = new InfoIcon("Display results and recommendations for each slide inside a new annotation.\nUsing a sample of 90 slides, minimum threshold default was defined as 2SD below mean for each region.")
 				HBox outputResultsCheckbox = new HBox(spacing)
 				outputResultsCheckbox.getChildren().addAll(descriptionOutput, resultsInfo)
 				descriptionOutput.setSelected(false)
@@ -449,7 +449,10 @@ class DemoGroovyExtension implements QuPathExtension {
 
 
 				// Export data for power BI
+				HBox exportHbox = new HBox(spacing)
 				CheckBox exportCheckbox = new CheckBox("Export csv file")
+				InfoIcon exportInfo = new InfoIcon("Export positivity data to csv file for analysis (e.g. monitoring over time with Levey-Jennings graph)")
+				exportHbox.getChildren().addAll(exportCheckbox, exportInfo)
 				exportCheckbox.setSelected(false)
 				HBox output_hbox = PathChooserHelper.createDirectoryChooserBox("Data csv save destination", "csv file directory" ,"", spacing, dialog)
 				String output_dir = ""
@@ -458,7 +461,7 @@ class DemoGroovyExtension implements QuPathExtension {
 					println "output dir changed to " + output_dir
 				})
 				VBox exportSection = new VBox(spacing)
-				exportSection.getChildren().addAll(exportCheckbox, output_hbox)
+				exportSection.getChildren().addAll(exportHbox, output_hbox)
 				TitledPane exportPane = new TitledPane("Export for Power BI", exportSection)
 				exportPane.setExpanded(false)
 				
@@ -468,7 +471,9 @@ class DemoGroovyExtension implements QuPathExtension {
 				InfoIcon modularityInfo = new InfoIcon(
 """- The complete pipeline execution order is laid out with default values
 - Pipeline steps can be toggled for intermediate results
-- The only step that depends on stain vectors is InstanSeg""")
+- The only step that depends on stain vectors is InstanSeg
+- A project must always be selected before running
+- Paths in extension setup must be set before running (as well as paths for individual pipeline steps)""")
 				modularitySection.getChildren().addAll(pipelineModularityLabel, modularityInfo)
 
 				mainLayout.getChildren().addAll(
